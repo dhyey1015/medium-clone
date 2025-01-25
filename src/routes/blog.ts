@@ -25,11 +25,13 @@ blogRouter.use("/*", async (c, next) => {
             c.set("userId", user.id);
             await next();
         }else{
+            c.status(401);
             return c.json({
                 message: "Please provide authorization token"
             })
         }
     } catch(e){
+        c.status(403);
         return c.json({
             message: "you are not logged in"
         })
