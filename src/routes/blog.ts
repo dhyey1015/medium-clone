@@ -1,3 +1,4 @@
+import { createBlogInput, updateBlogInput } from "@dhyey1015/medium-clone-common";
 import { PrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { Hono } from "hono";
@@ -28,7 +29,7 @@ blogRouter.use("/*", async (c, next) => {
             c.status(401);
             return c.json({
                 message: "Please provide authorization token"
-            })
+            });
         }
     } catch(e){
         c.status(403);
@@ -40,65 +41,82 @@ blogRouter.use("/*", async (c, next) => {
     
 });
 
-blogRouter.post('/new-blog', async (c, next) =>{
+blogRouter.post('/new-blog', async (c, next) =>{ 
     const body = await c.req.json();
+    const { success } = createBlogInput.safeParse(body);
     const userId = c.get('userId');
 
     const prisma = new PrismaClient({
         datasourceUrl: c.env.DATABASE_URL
     }).$extends(withAccelerate())
-    try {
-        const blog = await prisma.blog.create({
-            data:{
-                title: body.title,
-                content:  body.content,
-                authorId: parseInt(userId)
-            }
-        })
-        c.status(201)
+
+    if(!success){
+        c.status(404)
         return c.json({
-            "message": "Successfully created blog post",
-            "created_blog_id": blog.id
+            message : "Invalid Input"
         })
-    } catch (e){
-        c.status(400)
-        return c.json({
-            "message": "Some unexpected error occurred",
-            "error": `${e}`
-        })
+    } 
+    else {
+        try {
+            const blog = await prisma.blog.create({
+                data:{
+                    title: body.title,
+                    content:  body.content,
+                    authorId: parseInt(userId)
+                }
+            })
+            c.status(201)
+            return c.json({
+                "message": "Successfully created blog post",
+                "created_blog_id": blog.id
+            })
+        } catch (e){
+            c.status(400)
+            return c.json({
+                "message": "Some unexpected error occurred",
+                "error": `${e}`
+            })
+        }
     }
-    
 });
 
 blogRouter.put('/edit-blog', async (c) => {
     const body = await c.req.json();
 
+    const { success } = updateBlogInput.safeParse(body);
+
     const prisma = new PrismaClient({
         datasourceUrl: c.env.DATABASE_URL
     }).$extends(withAccelerate());
-
-    try {
-        const blog = await prisma.blog.update({
-            where:{
-                id: body.id
-            },
-            data:{
-                title: body.title,
-                content: body.content,
-            }
-        });
-        c.status(200);
-        return c.json({
-            message: "your blog updated successfully",
-            "your_updated_blog's_id": blog.id
-        });
-    } catch(e){
-        c.status(404);
-        return c.json({
-            message: "something went  wrong",
-            "error": `${e}`
+    if(!success){
+        c.status(404)
+        c.json({
+            message: "Invalid Input"
         })
-    }
+    } else { 
+        try {
+            const blog = await prisma.blog.update({
+                where:{
+                    id: body.id
+                },
+                data:{
+                    title: body.title,
+                    content: body.content,
+                }
+            });
+            c.status(200);
+            return c.json({
+                message: "your blog updated successfully",
+                "your_updated_blog's_id": blog.id
+            });
+        } catch(e){
+            c.status(404);
+            return c.json({
+                message: "something went  wrong",
+                "error": `${e}`
+            })
+        }
+    } 
 });
    
 blogRouter.get('get-blog/:id', async (c) => {
